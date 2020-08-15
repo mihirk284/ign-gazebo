@@ -21,7 +21,7 @@
 #include <memory>
 
 #include <ignition/gazebo/gui/GuiSystem.hh>
-#include <ignition/msgs/lidar_sensor.pb.h>
+#include <ignition/msgs/laserscan.pb.h>
 #include "ignition/gui/qt.h"
 
 namespace ignition
@@ -49,13 +49,16 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE
     // Documentation inherited
     public: void LoadConfig(const tinyxml2::XMLElement *_pluginElem) override;
 
+    // Documentation Inherited
+    public: bool eventFilter(QObject *_obj, QEvent *_event);
+
     // Documentation inherited
     public: void Update(const UpdateInfo &_info,
         EntityComponentManager &_ecm) override;
     
     /// \brief Callback function to get data from the message
     /// \param[in]_msg LidarSensor message
-    public: void OnScan(const msgs::LidarSensor &_msg);
+    public: void OnScan(const msgs::LaserScan &_msg);
 
     /// \brief Reset and clear visual
     void ResetLidarVisual();
@@ -72,12 +75,16 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE
     public slots: void UpdateMaxRange(double _maxRange);
 
     /// \brief Set visual type of LidarVisual
-    /// \param[in]_type Index of selected visual type
+    /// \param[in] _type Index of selected visual type
     public slots: void UpdateType(int _type);
 
     /// \brief Set topic to subscribe for LidarSensor data
-    /// \param[in]_topic_name Name of selected topic
-    public slots: void UpdateTopicName(QString &_topic_name);
+    /// \param[in] _topic_name Name of selected topic
+    public slots: void UpdateTopicName();
+
+    /// \brief Set whether to display non-hitting rays
+    /// \param[in] _value Boolean value for displaying non hitting rays
+    public slots: void UpdateNonHitting(bool _value);
 
     /// \internal
     /// \brief Pointer to private data

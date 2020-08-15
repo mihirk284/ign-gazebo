@@ -36,18 +36,18 @@
 //     Layout.fillWidth: true
 //   }
 
-//   ComboBox {
-//     id: typeCombo
-//     Layout.fillWidth: true
-//     currentIndex: 3
-//     model: ["None", "Rays", "Points", "Triangles" ]
-//     onCurrentIndexChanged: {
-//       if (currentIndex < 0) {
-//         return;
-//       }
-//       VisualizeLidar.UpdateType(currentIndex);
-//     }
-//   }
+  // ComboBox {
+  //   id: typeCombo
+  //   Layout.fillWidth: true
+  //   currentIndex: 3
+  //   model: ["None", "Rays", "Points", "Triangles" ]
+  //   onCurrentIndexChanged: {
+  //     if (currentIndex < 0) {
+  //       return;
+  //     }
+  //     VisualizeLidar.UpdateType(currentIndex);
+  //   }
+  // }
 
 //   // Right spacer
 //   Item {
@@ -94,34 +94,34 @@
 //     onEditingFinished: VisualizeLidar.UpdateMaxRange(minRange.value)
 //   }
 
-//   ComboBox {
-//     id: combo
-//     Layout.fillWidth: true
-//     model: LaserScanDisplay.topicList
-//     currentIndex: 0
-//     editable: true
-//     editText: currentText
-//     displayText: currentText
-//     onCurrentIndexChanged: {
-//       if (currentIndex < 0) {
-//         return;
-//       }
+  // ComboBox {
+  //   id: combo
+  //   Layout.fillWidth: true
+  //   model: LaserScanDisplay.topicList
+  //   currentIndex: 0
+  //   editable: true
+  //   editText: currentText
+  //   displayText: currentText
+  //   onCurrentIndexChanged: {
+  //     if (currentIndex < 0) {
+  //       return;
+  //     }
 
-//       VisualizeLidar.UpdateTopicName(textAt(currentIndex));
-//     }
+  //     VisualizeLidar.UpdateTopicName(textAt(currentIndex));
+  //   }
 
-//     Component.onCompleted: {
-//       combo.editText = "/scan"
-//       combo.displayText = "/scan"
-//     }
+  //   Component.onCompleted: {
+  //     combo.editText = "/scan"
+  //     combo.displayText = "/scan"
+  //   }
 
-//     Connections {
-//       target: LaserScanDisplay
-//       onSetCurrentIndex: {
-//         combo.currentIndex = index
-//       }
-//     }
-//   }
+  //   Connections {
+  //     target: LaserScanDisplay
+  //     onSetCurrentIndex: {
+  //       combo.currentIndex = index
+  //     }
+  //   }
+  // }
 // }
 
 /*
@@ -142,154 +142,137 @@
 */
 import QtQuick 2.9
 import QtQuick.Controls 2.1
-import QtQuick.Controls.Material 2.2
-import QtQuick.Controls.Material.impl 2.2
+import QtQuick.Dialogs 1.0
 import QtQuick.Layouts 1.3
-import QtQuick.Controls.Styles 1.4
+import "qrc:/qml"
 
-ToolBar {
-  Layout.minimumWidth: 200
+GridLayout {
+  columns: 6
+  columnSpacing: 10
+  Layout.minimumWidth: 250
   Layout.minimumHeight: 200
+  anchors.fill: parent
+  anchors.leftMargin: 10
+  anchors.rightMargin: 10
 
-  background: Rectangle {
-    color: "transparent"
+  // Left spacer
+  Item {
+    Layout.columnSpan: 1
+    Layout.rowSpan: 15
+    Layout.fillWidth: true
   }
 
-  ButtonGroup {
-    id: group
+  CheckBox {
+    Layout.alignment: Qt.AlignHCenter
+    id: visualizeContacts
+    Layout.columnSpan: 4
+    text: qsTr("Show Non Hitting Rays")
+    checked: false
+    onClicked: {
+      VisualizeLidar.UpdateNonHitting(checked)
+    }
   }
 
-  GridLayout {
-    columns: 4
-    ToolButton {
-      id: top
-      checkable: true
-      ButtonGroup.group: group
-      ToolTip.text: "View from the top"
-      ToolTip.visible: hovered
-      ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-      Layout.row: 0
-      Layout.column: 1
-      contentItem: Image {
-        fillMode: Image.Pad
-        horizontalAlignment: Image.AlignHCenter
-        verticalAlignment: Image.AlignVCenter
-        source: "view_angle_top.png"
-        sourceSize.width: 24;
-        sourceSize.height: 24;
+  // Right spacer
+  Item {
+    Layout.columnSpan: 1
+    Layout.rowSpan: 15
+    Layout.fillWidth: true
+  }
+
+  Text {
+    Layout.columnSpan: 2
+    id: minRangeText
+    color: "dimgrey"
+    text: "Minimum Range (m)"
+  }
+
+  IgnSpinBox {
+    Layout.columnSpan: 2
+    Layout.fillWidth: true
+    id: minrange
+    maximumValue: 10.0
+    minimumValue: 0.01
+    value: 0.10
+    decimals: 2
+    stepSize: 0.1
+    onEditingFinished: VisualizeLidar.UpdateMinRange(minrange.value)
+  }
+
+  Text {
+    Layout.columnSpan: 2
+    id: maxRangeText
+    color: "dimgrey"
+    text: "Maximum Range (m)"
+  }
+
+  IgnSpinBox {
+    Layout.columnSpan: 2
+    Layout.fillWidth: true
+    id: maxrange
+    maximumValue: 100.0
+    minimumValue: 1.0
+    value: 10.0
+    decimals: 2
+    stepSize: 0.1
+    onEditingFinished: VisualizeLidar.UpdateMaxRange(maxrange.value)
+  }
+
+  Text {
+    Layout.columnSpan: 2
+    id: updatePeriodText
+    color: "dimgrey"
+    text: "Visual Type"
+  }
+
+  ComboBox {
+    id: typeCombo
+    Layout.fillWidth: true
+    currentIndex: 3
+    model: ["None", "Rays", "Points", "Triangles" ]
+    onCurrentIndexChanged: {
+      if (currentIndex < 0) {
+        return;
       }
-      onClicked: {
-        ViewAngle.OnAngleMode(0, 0, -1)
-      }
+      VisualizeLidar.UpdateType(typeCombo.currentIndex);
+      // VisualizeLidar.UpdateTopicName();
     }
-    ToolButton {
-      id: home
-      checkable: true
-      ButtonGroup.group: group
-      ToolTip.text: "Reset View Angle"
-      ToolTip.visible: hovered
-      ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-      Layout.row: 0
-      Layout.column: 3
-      contentItem: Image {
-        fillMode: Image.Pad
-        horizontalAlignment: Image.AlignHCenter
-        verticalAlignment: Image.AlignVCenter
-        source: "view_angle_home.png"
-        sourceSize.width: 24;
-        sourceSize.height: 24;
+  }
+
+  Text {
+    Layout.columnSpan: 2
+    id: lidarMsgText
+    color: "dimgrey"
+    text: "Lidar Message"
+  }
+
+  // ComboBox {
+  //   id: msgText
+  //   Layout.fillWidth: true
+  //   currentIndex: 3
+  //   model: ["None", "Rays", "Points", "/lidar" ]
+  //   onCurrentIndexChanged: {
+  //     if (currentIndex < 0) {
+  //       return;
+  //     }
+  //     VisualizeLidar.UpdateTopicName(textAt(currentIndex));
+  //   }
+  // }
+
+  ComboBox {
+    id: combo
+    Layout.fillWidth: true
+    model: LaserScanDisplay.topicList
+    currentIndex: 0
+    editable: true
+    editText: currentText
+    displayText: currentText
+    onCurrentIndexChanged: {
+      if (currentIndex < 0) {
+        return;
       }
-    }
-    ToolButton {
-      id: left
-      checkable: true
-      ButtonGroup.group: group
-      ToolTip.text: "View from the left"
-      ToolTip.visible: hovered
-      ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-      Layout.row: 1
-      Layout.column: 0
-      contentItem: Image {
-        fillMode: Image.Pad
-        horizontalAlignment: Image.AlignHCenter
-        verticalAlignment: Image.AlignVCenter
-        source: "view_angle_left.png"
-        sourceSize.width: 24;
-        sourceSize.height: 24;
-      }
-    }
-    ToolButton {
-      id: front
-      checkable: true
-      ButtonGroup.group: group
-      ToolTip.text: "View from the front"
-      ToolTip.visible: hovered
-      ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-      Layout.row: 1
-      Layout.column: 1
-      contentItem: Image {
-        fillMode: Image.Pad
-        horizontalAlignment: Image.AlignHCenter
-        verticalAlignment: Image.AlignVCenter
-        source: "view_angle_front.png"
-        sourceSize.width: 24;
-        sourceSize.height: 24;
-      }
-    }
-    ToolButton {
-      id: right
-      checkable: true
-      ButtonGroup.group: group
-      ToolTip.text: "View from the right"
-      ToolTip.visible: hovered
-      ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-      Layout.row: 1
-      Layout.column: 2
-      contentItem: Image {
-        fillMode: Image.Pad
-        horizontalAlignment: Image.AlignHCenter
-        verticalAlignment: Image.AlignVCenter
-        source: "view_angle_right.png"
-        sourceSize.width: 24;
-        sourceSize.height: 24;
-      }
-    }
-    ToolButton {
-      id: back
-      checkable: true
-      ButtonGroup.group: group
-      ToolTip.text: "View from the back"
-      ToolTip.visible: hovered
-      ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-      Layout.row: 1
-      Layout.column: 3
-      contentItem: Image {
-        fillMode: Image.Pad
-        horizontalAlignment: Image.AlignHCenter
-        verticalAlignment: Image.AlignVCenter
-        source: "view_angle_back.png"
-        sourceSize.width: 24;
-        sourceSize.height: 24;
-      }
-    }
-    ToolButton {
-      id: bottom
-      checkable: true
-      ButtonGroup.group: group
-      ToolTip.text: "View from the bottom"
-      ToolTip.visible: hovered
-      ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-      Layout.row: 2
-      Layout.column: 1
-      contentItem: Image {
-        fillMode: Image.Pad
-        horizontalAlignment: Image.AlignHCenter
-        verticalAlignment: Image.AlignVCenter
-        source: "view_angle_bottom.png"
-        sourceSize.width: 24;
-        sourceSize.height: 24;
-      }
+
+      VisualizeLidar.UpdateTopicName(textAt(currentText));
     }
   }
 }
-

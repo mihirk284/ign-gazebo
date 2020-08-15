@@ -15,7 +15,7 @@
  *
 */
 
-#include <ignition/msgs/lidar_sensor.pb.h>
+#include <ignition/msgs/laserscan.pb.h>
 
 #include <string>
 #include <vector>
@@ -78,8 +78,8 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE
     /// \brief Visual type for lidar visual
     public: rendering::LidarVisualType visualType;
 
-    /// \brief LidarSensor message from sensor
-    public: msgs::LidarSensor msg;
+    /// \brief LaserScan message from sensor
+    public: msgs::LaserScan msg;
 
     /// \brief Current state of the checkbox
     public: bool checkboxState{false};
@@ -107,6 +107,9 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE
     /// \brief Initialization flag
     public: bool initialized{false};
 
+    // \brief lidar visual display dirty flag
+    public: bool visualDirty{false};
+
     /// \brief Name of the world
     public: std::string worldName;
   };
@@ -121,6 +124,8 @@ using namespace gazebo;
 VisualizeLidar::VisualizeLidar()
   : GuiSystem(), dataPtr(new VisualizeLidarPrivate)
 {
+  this->dataPtr->node.Subscribe("/lidar",
+                            &VisualizeLidar::OnScan, this);
 }
 
 /////////////////////////////////////////////////
@@ -197,128 +202,32 @@ void VisualizeLidar::LoadConfig(const tinyxml2::XMLElement *)
     ignition::gui::MainWindow *>()->installEventFilter(this);
 }
 
+/////////////////////////////////////////////////
+bool VisualizeLidar::eventFilter(QObject *_obj, QEvent *_event)
+{
+  if (_event->type() == ignition::gazebo::gui::events::Render::kType)
+  {
+    // This event is called in Scene3d's RenderThread, so it's safe to make
+    // rendering calls here
+
+    if (!this->dataPtr->initialized)
+    {
+      this->LoadLidar();
+    }
+
+    this->dataPtr->lidar->Update();
+  }
+
+  // Standard event processing
+  return QObject::eventFilter(_obj, _event);
+}
+
 //////////////////////////////////////////////////
 void VisualizeLidar::Update(const UpdateInfo &_info,
     EntityComponentManager &_ecm)
 {
   IGN_PROFILE("VisualizeLidar::Update");
 
-  if (!this->dataPtr->initialized)
-  {
-    this->LoadLidar();
-  }
-
-  this->dataPtr->lidar->SetMinRange(this->dataPtr->minVisualRange);
-  this->dataPtr->lidar->SetMinRange(this->dataPtr->maxVisualRange);
-  this->dataPtr->lidar->SetVerticalRayCount(this->dataPtr->msg.vertical_samples());
-  this->dataPtr->lidar->SetHorizontalRayCount(
-                this->dataPtr->msg.horizontal_samples());
-  this->dataPtr->lidar->SetMinHorizontalAngle(
-            this->dataPtr->msg.horizontal_min_angle());
-  this->dataPtr->lidar->SetMaxHorizontalAngle(
-            this->dataPtr->msg.horizontal_max_angle());
-  this->dataPtr->lidar->SetMinVerticalAngle(
-            this->dataPtr->msg.vertical_min_angle());
-  this->dataPtr->lidar->SetMaxVerticalAngle(
-            this->dataPtr->msg.vertical_max_angle());
-  this->dataPtr->lidar->SetType(this->dataPtr->visualType);
-
-  // {
-  //   std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
-  //   if (this->dataPtr->checkboxPrevState && !this->dataPtr->checkboxState)
-  //   {
-  //     // Remove the markers
-  //     this->dataPtr->positionMarkerMsg.set_action(
-  //       ignition::msgs::Marker::DELETE_ALL);
-  //     this->dataPtr->forceMarkerMsg.set_action(
-  //       ignition::msgs::Marker::DELETE_ALL);
-
-  //     igndbg << "Removing markers..." << std::endl;
-  //     this->dataPtr->node.Request(
-  //       "/marker", this->dataPtr->positionMarkerMsg);
-  //     this->dataPtr->node.Request(
-  //       "/marker", this->dataPtr->forceMarkerMsg);
-
-  //     // Change action in case checkbox is checked again
-  //     this->dataPtr->positionMarkerMsg.set_action(
-  //       ignition::msgs::Marker::ADD_MODIFY);
-  //     this->dataPtr->forceMarkerMsg.set_action(
-  //       ignition::msgs::Marker::ADD_MODIFY);
-  //   }
-
-  //   this->dataPtr->checkboxPrevState = this->dataPtr->checkboxState;
-  //   if (!this->dataPtr->checkboxState)
-  //     return;
-  // }
-
-  // // Only publish markers if enough time has passed
-  // auto timeDiff =
-  //   std::chrono::duration_cast<std::chrono::milliseconds>(_info.simTime -
-  //   //this->dataPtr->lastMarkersUpdateTime);
-
-  // if (timeDiff.count() < this->dataPtr->markerLifetime)
-  //   return;
-
-  // // Store simulation time
-  // //this->dataPtr->lastMarkersUpdateTime = _info.simTime;
-
-  // // todo(anyone) Get the contacts of the links that don't have a
-  // // contact sensor
-
-  // // Get the contacts and publish them
-  // // Since we are setting a lifetime for the markers, we get all the
-  // // contacts instead of getting news and removed ones
-
-  // // Variable for setting the markers id through the iteration
-  // int markerID = 1;
-  // _ecm.Each<components::ContactSensorData>(
-  //   [&](const Entity &,
-  //       const components::ContactSensorData *_contacts) -> bool
-  //   {
-  //     for (const auto &contact : _contacts->Data().contact())
-  //     {
-  //       // todo(anyone) add information about contact normal, depth
-  //       // and wrench
-  //       for (int i = 0; i < contact.position_size(); ++i)
-  //       {
-  //         // Skip dummy data set by physics
-  //         bool dataIsDummy = std::fabs(
-  //           contact.position(i).x() -
-  //           static_cast<float>(ignition::math::NAN_I)) < 0.001;
-  //         if (dataIsDummy)
-  //           return true;
-
-  //         // Set marker id, poses and request service
-  //         this->dataPtr->positionMarkerMsg.set_id(markerID);
-  //         ignition::msgs::Set(this->dataPtr->positionMarkerMsg.mutable_pose(),
-  //           ignition::math::Pose3d(contact.position(i).x(),
-  //             contact.position(i).y(), contact.position(i).z(),
-  //             0, 0, 0));
-
-  //         // Placeholder for the force value (see todo comment above)
-  //         double force = 1;
-
-  //         double forceLength = this->dataPtr->forceScale * force;
-  //         ignition::msgs::Set(this->dataPtr->forceMarkerMsg.mutable_scale(),
-  //           ignition::math::Vector3d(0.02, 0.02, forceLength));
-
-  //         // The position of the force marker is modified in order to place the
-  //         // end of the cylinder in the contact point, not its middle point
-  //         this->dataPtr->forceMarkerMsg.set_id(markerID++);
-  //         ignition::msgs::Set(this->dataPtr->forceMarkerMsg.mutable_pose(),
-  //           ignition::math::Pose3d(contact.position(i).x(),
-  //             contact.position(i).y(),
-  //             contact.position(i).z() + forceLength/2,
-  //             0, 0, 0));
-
-  //         this->dataPtr->node.Request(
-  //           "/marker", this->dataPtr->positionMarkerMsg);
-  //         this->dataPtr->node.Request(
-  //           "/marker", this->dataPtr->forceMarkerMsg);
-  //       }
-  //     }
-  //     return true;
-  //   });
 }
 
 //////////////////////////////////////////////////
@@ -326,6 +235,7 @@ void VisualizeLidar::UpdateMinRange(double _minRange)
 {
   std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
   this->dataPtr->minVisualRange = _minRange;
+  this->dataPtr->lidar->SetMinRange(this->dataPtr->minVisualRange);
 }
 
 //////////////////////////////////////////////////
@@ -333,6 +243,7 @@ void VisualizeLidar::UpdateMaxRange(double _maxRange)
 {
   std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
   this->dataPtr->maxVisualRange = _maxRange;
+  this->dataPtr->lidar->SetMaxRange(this->dataPtr->maxVisualRange);
 }
 
 //////////////////////////////////////////////////
@@ -356,29 +267,54 @@ void VisualizeLidar::UpdateType(int _type)
                       rendering::LidarVisualType::LVT_TRIANGLE_STRIPS;
             break;
   }
+  this->dataPtr->lidar->SetType(this->dataPtr->visualType);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-void VisualizeLidar::UpdateTopicName(QString &_topic_name)
+//////////////////////////////////////////////////
+void VisualizeLidar::UpdateTopicName()
 {
   std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);
-  this->dataPtr->topic_name = _topic_name.toStdString();
+  this->dataPtr->node.Unsubscribe(this->dataPtr->topic_name);
 
+  this->dataPtr->topic_name = "/lidar"; //_topic_name.toStdString();
   // Reset visualization
   this->ResetLidarVisual();
   // Create new subscription
   this->dataPtr->node.Subscribe(this->dataPtr->topic_name,
                             &VisualizeLidar::OnScan, this);
+  
+  std::cout << "SUBSCRIBED TO TOPIC " << this->dataPtr->topic_name << std::endl;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-void VisualizeLidar::OnScan(const msgs::LidarSensor &_msg)
+//////////////////////////////////////////////////
+void VisualizeLidar::UpdateNonHitting(bool _value)
+{
+  std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);
+  this->dataPtr->lidar->SetDisplayNonHitting(_value);
+}
+
+//////////////////////////////////////////////////
+void VisualizeLidar::OnScan(const msgs::LaserScan &_msg)
 {
   std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);
   this->dataPtr->msg = std::move(_msg);
+  ignition::math::Pose3d testPose = msgs::Convert(this->dataPtr->msg.world_pose());
+  this->dataPtr->lidar->SetWorldPosition(testPose.Pos());
+  this->dataPtr->lidar->SetWorldRotation(testPose.Rot());
+  this->dataPtr->lidar->SetVerticalRayCount(this->dataPtr->msg.vertical_count());
+  this->dataPtr->lidar->SetHorizontalRayCount(this->dataPtr->msg.count());
+  this->dataPtr->lidar->SetMinHorizontalAngle(this->dataPtr->msg.angle_min());
+  this->dataPtr->lidar->SetMaxHorizontalAngle(this->dataPtr->msg.angle_max());
+  this->dataPtr->lidar->SetMinVerticalAngle(this->dataPtr->msg.vertical_angle_min());
+  this->dataPtr->lidar->SetMaxVerticalAngle(this->dataPtr->msg.vertical_angle_max());
+  this->dataPtr->lidar->SetPoints(std::vector<double>(
+            this->dataPtr->msg.ranges().begin(),
+            this->dataPtr->msg.ranges().end()));
+
+  this->dataPtr->visualDirty = true;
 }
 
-////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////
 void VisualizeLidar::ResetLidarVisual()
 {
   std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);

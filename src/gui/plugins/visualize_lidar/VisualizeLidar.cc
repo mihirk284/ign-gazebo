@@ -48,6 +48,12 @@
 #include "ignition/gazebo/gui/GuiEvents.hh"
 #include "ignition/gazebo/rendering/RenderUtil.hh"
 
+#include "ignition/gazebo/components/Link.hh"
+#include "ignition/gazebo/components/Model.hh"
+#include "ignition/gazebo/components/Name.hh"
+#include "ignition/gazebo/components/ParentEntity.hh"
+#include "ignition/gazebo/components/Pose.hh"
+
 
 #include <ignition/rendering/RenderTypes.hh>
 #include <ignition/rendering/RenderingIface.hh>
@@ -80,6 +86,9 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE
 
     /// \brief LaserScan message from sensor
     public: msgs::LaserScan msg;
+
+    /// \brief Pose of the lidar visual
+    public: math::Pose3d lidarPose{math::Pose3d::Zero};
 
     /// \brief Current state of the checkbox
     public: bool checkboxState{false};
@@ -215,7 +224,11 @@ bool VisualizeLidar::eventFilter(QObject *_obj, QEvent *_event)
       this->LoadLidar();
     }
 
-    this->dataPtr->lidar->Update();
+    if (this->dataPtr->visualDirty)
+    {
+      this->dataPtr->lidar->Update();
+      this->dataPtr->visualDirty = false;
+    }
   }
 
   // Standard event processing
@@ -226,8 +239,13 @@ bool VisualizeLidar::eventFilter(QObject *_obj, QEvent *_event)
 void VisualizeLidar::Update(const UpdateInfo &_info,
     EntityComponentManager &_ecm)
 {
+  std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);
   IGN_PROFILE("VisualizeLidar::Update");
 
+  auto parent = _ecm.Component<components::ParentEntity>(13);
+  auto parentPose = _ecm.Component<components::Pose>(parent->Data())->Data();
+  this->dataPtr->lidarPose = parentPose;
+  // std::cout << "WorldPose " <<this->dataPtr->lidarPose << std::endl;
 }
 
 //////////////////////////////////////////////////
@@ -296,11 +314,11 @@ void VisualizeLidar::UpdateNonHitting(bool _value)
 //////////////////////////////////////////////////
 void VisualizeLidar::OnScan(const msgs::LaserScan &_msg)
 {
-  std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);
   this->dataPtr->msg = std::move(_msg);
-  ignition::math::Pose3d testPose = msgs::Convert(this->dataPtr->msg.world_pose());
-  this->dataPtr->lidar->SetWorldPosition(testPose.Pos());
-  this->dataPtr->lidar->SetWorldRotation(testPose.Rot());
+  // ignition::math::Pose3d testPose = math::Pose3d(math::Vector3d(3.95, -0.05, 0.55),
+  // math::Quaterniond(0,0,3.14));
+  // this->dataPtr->lidar->SetWorldPosition(testPose.Pos());
+  // this->dataPtr->lidar->SetWorldRotation(testPose.Rot());
   this->dataPtr->lidar->SetVerticalRayCount(this->dataPtr->msg.vertical_count());
   this->dataPtr->lidar->SetHorizontalRayCount(this->dataPtr->msg.count());
   this->dataPtr->lidar->SetMinHorizontalAngle(this->dataPtr->msg.angle_min());
@@ -310,6 +328,7 @@ void VisualizeLidar::OnScan(const msgs::LaserScan &_msg)
   this->dataPtr->lidar->SetPoints(std::vector<double>(
             this->dataPtr->msg.ranges().begin(),
             this->dataPtr->msg.ranges().end()));
+  this->dataPtr->lidar->SetWorldPose(this->dataPtr->lidarPose);
 
   this->dataPtr->visualDirty = true;
 }

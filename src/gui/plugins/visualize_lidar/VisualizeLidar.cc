@@ -219,11 +219,14 @@ bool VisualizeLidar::eventFilter(QObject *_obj, QEvent *_event)
     // This event is called in Scene3d's RenderThread, so it's safe to make
     // rendering calls here
 
+    std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
+
     if (!this->dataPtr->initialized)
     {
       this->LoadLidar();
     }
 
+    this->dataPtr->lidar->SetWorldPose(this->dataPtr->lidarPose);
     if (this->dataPtr->visualDirty)
     {
       this->dataPtr->lidar->Update();
@@ -236,16 +239,15 @@ bool VisualizeLidar::eventFilter(QObject *_obj, QEvent *_event)
 }
 
 //////////////////////////////////////////////////
-void VisualizeLidar::Update(const UpdateInfo &_info,
+void VisualizeLidar::Update(const UpdateInfo &,
     EntityComponentManager &_ecm)
 {
-  std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);
+  std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
   IGN_PROFILE("VisualizeLidar::Update");
 
   auto parent = _ecm.Component<components::ParentEntity>(13);
   auto parentPose = _ecm.Component<components::Pose>(parent->Data())->Data();
   this->dataPtr->lidarPose = parentPose;
-  // std::cout << "WorldPose " <<this->dataPtr->lidarPose << std::endl;
 }
 
 //////////////////////////////////////////////////
@@ -314,11 +316,8 @@ void VisualizeLidar::UpdateNonHitting(bool _value)
 //////////////////////////////////////////////////
 void VisualizeLidar::OnScan(const msgs::LaserScan &_msg)
 {
+  std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);
   this->dataPtr->msg = std::move(_msg);
-  // ignition::math::Pose3d testPose = math::Pose3d(math::Vector3d(3.95, -0.05, 0.55),
-  // math::Quaterniond(0,0,3.14));
-  // this->dataPtr->lidar->SetWorldPosition(testPose.Pos());
-  // this->dataPtr->lidar->SetWorldRotation(testPose.Rot());
   this->dataPtr->lidar->SetVerticalRayCount(this->dataPtr->msg.vertical_count());
   this->dataPtr->lidar->SetHorizontalRayCount(this->dataPtr->msg.count());
   this->dataPtr->lidar->SetMinHorizontalAngle(this->dataPtr->msg.angle_min());
@@ -328,7 +327,6 @@ void VisualizeLidar::OnScan(const msgs::LaserScan &_msg)
   this->dataPtr->lidar->SetPoints(std::vector<double>(
             this->dataPtr->msg.ranges().begin(),
             this->dataPtr->msg.ranges().end()));
-  this->dataPtr->lidar->SetWorldPose(this->dataPtr->lidarPose);
 
   this->dataPtr->visualDirty = true;
 }

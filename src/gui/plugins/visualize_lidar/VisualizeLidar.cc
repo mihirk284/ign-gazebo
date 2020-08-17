@@ -94,7 +94,7 @@ inline namespace IGNITION_GAZEBO_VERSION_NAMESPACE
     public: bool checkboxState{false};
 
     /// \brief Topic name to subscribe
-    public: std::string topic_name;
+    public: std::string topicName;
 
     /// \brief Message for visualizing contact positions
     public: ignition::msgs::Marker positionMarkerMsg;
@@ -143,6 +143,7 @@ VisualizeLidar::~VisualizeLidar() = default;
 /////////////////////////////////////////////////
 void VisualizeLidar::LoadLidar()
 {
+  // std::cout << "Something wrong here in LoadLidar?" << std::endl;
   auto loadedEngNames = rendering::loadedEngines();
   if (loadedEngNames.empty())
     return;
@@ -199,16 +200,19 @@ void VisualizeLidar::LoadLidar()
   root->AddChild(this->dataPtr->lidar);
 
   this->dataPtr->initialized = true;
+  // std::cout << "Nothing wrong here in loadlidar?" << std::endl;
 }
 
 /////////////////////////////////////////////////
 void VisualizeLidar::LoadConfig(const tinyxml2::XMLElement *)
 {
+  // std::cout << "Something wrong here in LoadConfig?" << std::endl;
   if (this->title.empty())
     this->title = "Visualize lidar";
 
   ignition::gui::App()->findChild<
     ignition::gui::MainWindow *>()->installEventFilter(this);
+    // std::cout << "Nothing wrong here in LoadConfig?" << std::endl;
 }
 
 /////////////////////////////////////////////////
@@ -220,18 +224,19 @@ bool VisualizeLidar::eventFilter(QObject *_obj, QEvent *_event)
     // rendering calls here
 
     std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
-
+    // std::cout << "Something wrong here in eventFilter?" << std::endl;
     if (!this->dataPtr->initialized)
     {
       this->LoadLidar();
     }
 
-    this->dataPtr->lidar->SetWorldPose(this->dataPtr->lidarPose);
+    // this->dataPtr->lidar->SetWorldPose(this->dataPtr->lidarPose);
     if (this->dataPtr->visualDirty)
     {
       this->dataPtr->lidar->Update();
       this->dataPtr->visualDirty = false;
     }
+    // std::cout << "Nothing wrong here in eventfilter?" << std::endl;
   }
 
   // Standard event processing
@@ -242,33 +247,42 @@ bool VisualizeLidar::eventFilter(QObject *_obj, QEvent *_event)
 void VisualizeLidar::Update(const UpdateInfo &,
     EntityComponentManager &_ecm)
 {
-  std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
+  // std::cout << "Something wrong here in update?" << std::endl;
   IGN_PROFILE("VisualizeLidar::Update");
+  // // auto parent = _ecm.Component<components::ParentEntity>(13);
+  auto parentPose = _ecm.Component<components::WorldPose>(13);
+  // // std::cout << "DONE checking pose from entity id 13" <<std::endl;
 
-  auto parent = _ecm.Component<components::ParentEntity>(13);
-  auto parentPose = _ecm.Component<components::Pose>(parent->Data())->Data();
-  this->dataPtr->lidarPose = parentPose;
+  std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
+  this->dataPtr->lidarPose = parentPose->Data(); //math::Pose3d(3.95, -0.05, 0.55, 0, 0, 3.14);//
+  // // std::cout << "Parent pose is " << parentPose->Data() << std::endl;
+  // std::cout << "Nothing wrong here in update?" << std::endl;
 }
 
 //////////////////////////////////////////////////
 void VisualizeLidar::UpdateMinRange(double _minRange)
 {
+  // std::cout << "Something wrong here in minrange?" << std::endl;
   std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
   this->dataPtr->minVisualRange = _minRange;
   this->dataPtr->lidar->SetMinRange(this->dataPtr->minVisualRange);
+  // std::cout << "nothing wrong here in minrange?" << std::endl;
 }
 
 //////////////////////////////////////////////////
 void VisualizeLidar::UpdateMaxRange(double _maxRange)
 {
+  // std::cout << "Something wrong here in maxrange?" << std::endl;
   std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
   this->dataPtr->maxVisualRange = _maxRange;
   this->dataPtr->lidar->SetMaxRange(this->dataPtr->maxVisualRange);
+  // std::cout << "nothing wrong here in maxrange?" << std::endl;
 }
 
 //////////////////////////////////////////////////
 void VisualizeLidar::UpdateType(int _type)
 {
+  // std::cout << "Something wrong here in updatetype?" << std::endl;
   std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
   switch (_type) {
     case 0: this->dataPtr->visualType = 
@@ -288,22 +302,22 @@ void VisualizeLidar::UpdateType(int _type)
             break;
   }
   this->dataPtr->lidar->SetType(this->dataPtr->visualType);
+  // std::cout << "Nothing wrong here in updatetype?" << std::endl;
 }
 
 //////////////////////////////////////////////////
 void VisualizeLidar::UpdateTopicName()
 {
   std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);
-  this->dataPtr->node.Unsubscribe(this->dataPtr->topic_name);
+  this->dataPtr->node.Unsubscribe(this->dataPtr->topicName);
 
-  this->dataPtr->topic_name = "/lidar"; //_topic_name.toStdString();
+  this->dataPtr->topicName = "/lidar"; //_topicName.toStdString();
   // Reset visualization
   this->ResetLidarVisual();
   // Create new subscription
-  this->dataPtr->node.Subscribe(this->dataPtr->topic_name,
+  this->dataPtr->node.Subscribe(this->dataPtr->topicName,
                             &VisualizeLidar::OnScan, this);
-  
-  std::cout << "SUBSCRIBED TO TOPIC " << this->dataPtr->topic_name << std::endl;
+  ignmsg << "Subscribed to " << this->dataPtr->topicName << std::endl;
 }
 
 //////////////////////////////////////////////////
@@ -316,19 +330,24 @@ void VisualizeLidar::UpdateNonHitting(bool _value)
 //////////////////////////////////////////////////
 void VisualizeLidar::OnScan(const msgs::LaserScan &_msg)
 {
+  // std::cout << "Something wrong here in onscan?" << std::endl;
   std::lock_guard<std::mutex>(this->dataPtr->serviceMutex);
-  this->dataPtr->msg = std::move(_msg);
-  this->dataPtr->lidar->SetVerticalRayCount(this->dataPtr->msg.vertical_count());
-  this->dataPtr->lidar->SetHorizontalRayCount(this->dataPtr->msg.count());
-  this->dataPtr->lidar->SetMinHorizontalAngle(this->dataPtr->msg.angle_min());
-  this->dataPtr->lidar->SetMaxHorizontalAngle(this->dataPtr->msg.angle_max());
-  this->dataPtr->lidar->SetMinVerticalAngle(this->dataPtr->msg.vertical_angle_min());
-  this->dataPtr->lidar->SetMaxVerticalAngle(this->dataPtr->msg.vertical_angle_max());
-  this->dataPtr->lidar->SetPoints(std::vector<double>(
-            this->dataPtr->msg.ranges().begin(),
-            this->dataPtr->msg.ranges().end()));
+  if (this->dataPtr->initialized)
+  {
+    this->dataPtr->msg = std::move(_msg);
+    this->dataPtr->lidar->SetVerticalRayCount(this->dataPtr->msg.vertical_count());
+    this->dataPtr->lidar->SetHorizontalRayCount(this->dataPtr->msg.count());
+    this->dataPtr->lidar->SetMinHorizontalAngle(this->dataPtr->msg.angle_min());
+    this->dataPtr->lidar->SetMaxHorizontalAngle(this->dataPtr->msg.angle_max());
+    this->dataPtr->lidar->SetMinVerticalAngle(this->dataPtr->msg.vertical_angle_min());
+    this->dataPtr->lidar->SetMaxVerticalAngle(this->dataPtr->msg.vertical_angle_max());
+    this->dataPtr->lidar->SetPoints(std::vector<double>(
+              this->dataPtr->msg.ranges().begin(),
+              this->dataPtr->msg.ranges().end()));
 
-  this->dataPtr->visualDirty = true;
+    this->dataPtr->visualDirty = true;
+  }
+  // // std::cout << "nohthing wrong here in onscan?" << std::endl;
 }
 
 //////////////////////////////////////////////////

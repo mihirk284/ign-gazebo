@@ -254,7 +254,7 @@ void VisualizeLidar::Update(const UpdateInfo &,
   // // std::cout << "DONE checking pose from entity id 13" <<std::endl;
 
   std::lock_guard<std::mutex> lock(this->dataPtr->serviceMutex);
-  this->dataPtr->lidarPose = parentPose->Data(); //math::Pose3d(3.95, -0.05, 0.55, 0, 0, 3.14);//
+  this->dataPtr->lidarPose = math::Pose3d(3.95, -0.05, 0.55, 0, 0, 3.14);//
   // // std::cout << "Parent pose is " << parentPose->Data() << std::endl;
   // std::cout << "Nothing wrong here in update?" << std::endl;
 }
